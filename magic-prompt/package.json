@@ -1,0 +1,10 @@
+{
+  "name": "magic-prompt",
+  "version": "1.0.0",
+  "description": "Turkce Magic Prompt Generator - kisa isteği optimize edilmiş prompt'a çeviren araç",
+  "main": "api/generate.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "license": "MIT"
+}

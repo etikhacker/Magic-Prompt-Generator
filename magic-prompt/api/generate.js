@@ -1,0 +1,140 @@
+// api/generate.js
+// Bu funksiya Vercel-də serverless function kimi işləyir: /api/generate
+// OpenRouter-in PULSUZ modellərini işlədir (Anthropic API-yə görə pul tələb etmir).
+
+const CATEGORY_GUIDES = {
+  email: `Kateqoriya: E-poçt yazmaq.
+Optimizə edilmiş prompt aşağıdakıları dəqiq soruşmalıdır:
+- Göndərənin kim olduğu, alıcının kim olduğu, əlaqənin xarakteri (rəsmi/qeyri-rəsmi)
+- E-poçtun məqsədi (xahiş, təklif, şikayət, təşəkkür və s.)
+- İstənilən ton (rəsmi, səmimi, qısa, ətraflı)
+- Türkiyə/Azərbaycan iş mühitinə uyğun müraciət formaları (məs. "Hörmətli", "Salam")
+- Son olaraq aydın bir "call to action" (nə gözlənilir alıcıdan)`,
+
+  sunum: `Kateqoriya: Sunum / Təqdimat hazırlamaq.
+Optimizə edilmiş prompt aşağıdakıları dəqiq soruşmalıdır:
+- Auditoriya kim (investorlar, tələbələr, iş yoldaşları)
+- Neçə slayd, neçə dəqiqəlik təqdimat
+- Əsas mesaj / tezis nədir
+- Yerli nümunələr istənilməlidir (Azərbaycan/Türkiyə bazarından, Amerika nümunələri əvəzinə)
+- Vizual struktur təklifi (başlıq, alt başlıqlar, data nöqtələri)`,
+
+  is_fikri: `Kateqoriya: İş fikri / Startap konsepti.
+Optimizə edilmiş prompt aşağıdakıları dəqiq soruşmalıdır:
+- Hədəf bazar (yerli, məsələn Azərbaycan/Türkiyə şəraiti, qanunvericilik, ödəniş vərdişləri)
+- Problem-həll cütlüyü aydın tərif edilməlidir
+- Rəqiblərin yerli kontekstdə təhlili
+- Gəlir modeli təklifləri yerli reallıqlara uyğun (məs. nağd ödəniş vərdişi, kart istifadəsi)
+- Növbəti addımlar (MVP, pilot bazar və s.)`,
+
+  sinav: `Kateqoriya: Sınaq/imtahana hazırlaşmaq.
+Optimizə edilmiş prompt aşağıdakıları dəqiq soruşmalıdır:
+- Mövzu və dərəcə (universitet, məktəb, hansı fənn)
+- Bilik səviyyəsi (başlanğıc/orta/irəli)
+- İstənilən format (test sualları, açıq-uclu suallar, xülasə, flashcard)
+- Yerli təhsil sisteminə uyğunluq (məs. Azərbaycan/Türkiyə universitet proqramı)
+- Öyrənmə üsulu tərcihi (Feynman texnikası, təkrar test və s.)`,
+
+  genel: `Kateqoriya: Ümumi/sərbəst istək.
+Optimizə edilmiş prompt istifadəçinin əsl niyyətini aydınlaşdırmalı, çatışmayan detalları
+soruşmaq əvəzinə məntiqli fərziyyələrlə doldurmalı, və nəticənin formatını (uzunluq, dil,
+struktur) dəqiq müəyyən etməlidir.`,
+};
+
+const SYSTEM_PROMPT = `Sən təcrübəli bir prompt mühəndisisən. Sənin işin istifadəçinin qısa,
+xam istəyini götürüb, bunu Claude/ChatGPT kimi AI modellərindən ƏN YAXŞI nəticəni alacaq,
+Azərbaycan/Türkiyə kontekstinə uyğunlaşdırılmış, DETALLI bir promota çevirməkdir.
+
+QAYDALAR:
+1. Cavabın YALNIZ hazır prompt mətni olmalıdır — heç bir izah, giriş cümləsi, ya da
+   "Budur sizin promptunuz:" kimi əlavə söz YAZMA.
+2. Prompt Azərbaycan dilində (və ya istifadəçi hansı dildə yazıbsa o dildə) yazılmalıdır.
+3. Amerika-mərkəzli nümunələr əvəzinə yerli (Azərbaycan/Türkiyə) reallıqlara, qanunlara,
+   mədəniyyətə uyğun nümunələr və kontekst istifadə et.
+4. Prompt rol (persona), kontekst, dəqiq tapşırıq, format tələbləri və məhdudiyyətləri
+   (uzunluq, ton, dil) aydın şəkildə əhatə etməlidir.
+5. Prompt maksimum 150-200 söz olmalıdır — çox uzun olmasın, praktik olsun.`;
+
+module.exports = async function handler(req, res) {
+  // CORS - sadə frontend-dən çağırış üçün
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Yalnız POST metoduna icazə verilir." });
+    return;
+  }
+
+  const { request: userRequest, category } = req.body || {};
+
+  if (!userRequest || typeof userRequest !== "string" || !userRequest.trim()) {
+    res.status(400).json({ error: "'request' sahəsi boş ola bilməz." });
+    return;
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    res.status(500).json({
+      error:
+        "OPENROUTER_API_KEY tapılmadı. Vercel-in Environment Variables bölməsinə əlavə edin.",
+    });
+    return;
+  }
+
+  const model = process.env.OPENROUTER_MODEL || "openrouter/free";
+  const categoryGuide = CATEGORY_GUIDES[category] || CATEGORY_GUIDES.genel;
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        // OpenRouter pulsuz modellər üçün bu iki header tövsiyə olunur:
+        "HTTP-Referer": "https://magic-prompt.vercel.app",
+        "X-Title": "Magic Prompt Generator",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: `${SYSTEM_PROMPT}\n\n${categoryGuide}` },
+          { role: "user", content: userRequest.trim() },
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      // Pulsuz modellərdə rate-limit (429) tez-tez rast gəlinir
+      if (response.status === 429) {
+        res.status(429).json({
+          error:
+            "Pulsuz model limiti doldu (dəqiqədə ~20 sorğu). Bir az gözləyib yenidən sınayın.",
+        });
+        return;
+      }
+      res.status(response.status).json({ error: `OpenRouter xətası: ${errText}` });
+      return;
+    }
+
+    const data = await response.json();
+    const generatedPrompt = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!generatedPrompt) {
+      res.status(502).json({ error: "Model boş cavab qaytardı, yenidən sınayın." });
+      return;
+    }
+
+    res.status(200).json({ prompt: generatedPrompt, model_used: data.model || model });
+  } catch (err) {
+    res.status(500).json({ error: `Server xətası: ${err.message}` });
+  }
+};

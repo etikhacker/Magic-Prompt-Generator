@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Magic Prompt — Türkcə Prompt Generator</title>
+<style>
+  :root{
+    --bg: #0d0e12;
+    --panel: #15171d;
+    --panel-border: #262933;
+    --text: #e9e8f0;
+    --text-dim: #8b8d9a;
+    --accent: #9b7cff;
+    --accent-2: #ff9d5c;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(155,124,255,0.14), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(255,157,92,0.10), transparent 45%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display:flex;
+    justify-content:center;
+    padding: 48px 20px 80px;
+  }
+  .wrap{ width:100%; max-width: 720px; }
+
+  header{ margin-bottom: 36px; }
+  .eyebrow{
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1{
+    font-size: 34px;
+    line-height: 1.15;
+    margin: 0 0 10px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  h1 span{
+    background: linear-gradient(100deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sub{ color: var(--text-dim); font-size: 15px; max-width: 52ch; margin:0; }
+
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+
+  label{
+    display:block;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+
+  .categories{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .cat-btn{
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .cat-btn:hover{ border-color: var(--accent); color: var(--text); }
+  .cat-btn.active{
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0d0e12;
+    font-weight: 600;
+  }
+
+  textarea{
+    width:100%;
+    background: #0a0b0e;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 14px;
+    resize: vertical;
+    min-height: 84px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  textarea:focus{ border-color: var(--accent); }
+  textarea::placeholder{ color: #565a68; }
+
+  .generate-btn{
+    margin-top: 16px;
+    width:100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(100deg, var(--accent), var(--accent-2));
+    color: #0d0e12;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  .generate-btn:hover{ opacity: 0.92; }
+  .generate-btn:active{ transform: scale(0.99); }
+  .generate-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
+
+  .result-card{ display:none; }
+  .result-card.show{ display:block; }
+  .result-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom: 12px;
+  }
+  .copy-btn{
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+  .copy-btn:hover{ border-color: var(--accent); color: var(--text); }
+
+  pre{
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #d9d8e6;
+    background: #0a0b0e;
+    border: 1px solid var(--panel-border);
+    border-left: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 0;
+  }
+
+  .status{
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    min-height: 18px;
+    margin-top: 10px;
+  }
+  .status.error{ color: #ff7a7a; }
+
+  footer{
+    text-align:center;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: var(--mono);
+    margin-top: 32px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">/// prompt mühəndisliyi, avtomatlaşdırılmış</p>
+      <h1>Qısa istəyini <span>güclü promota</span> çevir</h1>
+      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazırlayaq.</p>
+    </header>
+
+    <div class="card">
+      <label>Kateqoriya</label>
+      <div class="categories" id="categories">
+        <button class="cat-btn active" data-cat="genel">Ümumi</button>
+        <button class="cat-btn" data-cat="email">E-poçt</button>
+        <button class="cat-btn" data-cat="sunum">Sunum</button>
+        <button class="cat-btn" data-cat="is_fikri">İş fikri</button>
+        <button class="cat-btn" data-cat="sinav">Sınağa hazırlıq</button>
+      </div>
+
+      <label>İstəyin nədir?</label>
+      <textarea id="userInput" placeholder="Məs: müştəriyə gecikmiş ödəniş barədə xatırlatma e-poçtu yazmaq istəyirəm"></textarea>
+
+      <button class="generate-btn" id="genBtn">✨ Prompt Yarat</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card result-card" id="resultCard">
+      <div class="result-head">
+        <label style="margin:0;">Hazır prompt</label>
+        <button class="copy-btn" id="copyBtn">Kopyala</button>
+      </div>
+      <pre id="resultText"></pre>
+    </div>
+
+    <footer>OpenRouter pulsuz model ilə işləyir · sınırsız yaradıcılıq, sıfır xərc</footer>
+  </div>
+
+<script>
+  let activeCategory = "genel";
+
+  document.querySelectorAll(".cat-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeCategory = btn.dataset.cat;
+    });
+  });
+
+  const genBtn = document.getElementById("genBtn");
+  const userInput = document.getElementById("userInput");
+  const statusEl = document.getElementById("status");
+  const resultCard = document.getElementById("resultCard");
+  const resultText = document.getElementById("resultText");
+  const copyBtn = document.getElementById("copyBtn");
+
+  async function generate(){
+    const text = userInput.value.trim();
+    if(!text){
+      statusEl.textContent = "Əvvəlcə nə istədiyini yaz.";
+      statusEl.classList.add("error");
+      return;
+    }
+    statusEl.classList.remove("error");
+    statusEl.textContent = "Hazırlanır...";
+    genBtn.disabled = true;
+    resultCard.classList.remove("show");
+
+    try{
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request: text, category: activeCategory })
+      });
+      const data = await res.json();
+
+      if(!res.ok){
+        throw new Error(data.error || "Naməlum xəta baş verdi.");
+      }
+
+      resultText.textContent = data.prompt;
+      resultCard.classList.add("show");
+      statusEl.textContent = data.model_used ? `Model: ${data.model_used}` : "";
+    }catch(err){
+      statusEl.textContent = "Xəta: " + err.message;
+      statusEl.classList.add("error");
+    }finally{
+      genBtn.disabled = false;
+    }
+  }
+
+  genBtn.addEventListener("click", generate);
+  userInput.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
+  });
+
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(resultText.textContent).then(() => {
+      copyBtn.textContent = "Kopyalandı ✓";
+      setTimeout(() => copyBtn.textContent = "Kopyala", 1500);
+    });
+  });
+</script>
+</body>
+</html>

@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Magic Prompt — Türkcə Prompt Generator</title>
+<title>Promptr — Türkcə Prompt Generator</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -17,6 +21,7 @@
     --gold: #c8963e;
     --gold-bright: #e0b463;
     --teal: #4a8a7f;
+    --brand: #ef6a48;
     --text: #ede6d6;
     --text-dim: #9c9182;
     --error: #d97b6a;
@@ -58,6 +63,14 @@
   }
   @keyframes seal-turn{
     to{ transform: rotate(360deg); }
+  }
+  .wordmark{
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--brand);
+    margin: 0 0 10px;
   }
   .eyebrow{
     font-family: var(--mono);
@@ -240,14 +253,11 @@
 <body>
   <div class="wrap">
     <header>
-      <svg class="seal" id="headerSeal" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M50 4 L58 34 L88 22 L64 44 L96 50 L64 56 L88 78 L58 66 L50 96 L42 66 L12 78 L36 56 L4 50 L36 44 L12 22 L42 34 Z"
-              stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" fill="none"/>
-        <circle cx="50" cy="50" r="7" stroke="currentColor" stroke-width="2.5" fill="none"/>
-      </svg>
+      <img class="seal" id="headerSeal" src="/logo-icon.png" alt="Promptr loqo" width="46" height="46" />
+      <p class="wordmark">Promptr</p>
       <p class="eyebrow">/// prompt mühəndisliyi, avtomatlaşdırılmış</p>
       <h1>Xam fikri <em>cilalanmış promota</em><br/>çevir</h1>
-      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazır olsun.</p>
+      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazırlayaq.</p>
     </header>
 
     <div class="card">
@@ -264,10 +274,7 @@
       <textarea id="userInput" placeholder="Məs: müştəriyə gecikmiş ödəniş barədə xatırlatma e-poçtu yazmaq istəyirəm"></textarea>
 
       <button class="generate-btn" id="genBtn">
-        <svg class="mini-seal" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M50 4 L58 34 L88 22 L64 44 L96 50 L64 56 L88 78 L58 66 L50 96 L42 66 L12 78 L36 56 L4 50 L36 44 L12 22 L42 34 Z"
-                stroke="currentColor" stroke-width="4" stroke-linejoin="round" fill="none"/>
-        </svg>
+        <img class="mini-seal" src="/logo-icon.png" alt="" width="15" height="15" />
         <span id="btnLabel">Prompt Yarat</span>
       </button>
       <div class="status" id="status"></div>

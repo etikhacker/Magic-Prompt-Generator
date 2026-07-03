@@ -4,106 +4,139 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Magic Prompt — Türkcə Prompt Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg: #0d0e12;
-    --panel: #15171d;
-    --panel-border: #262933;
-    --text: #e9e8f0;
-    --text-dim: #8b8d9a;
-    --accent: #9b7cff;
-    --accent-2: #ff9d5c;
-    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --ink: #14120f;
+    --panel: #1d1a15;
+    --panel-2: #221e17;
+    --border: #35291c;
+    --border-soft: #2a2318;
+    --gold: #c8963e;
+    --gold-bright: #e0b463;
+    --teal: #4a8a7f;
+    --text: #ede6d6;
+    --text-dim: #9c9182;
+    --error: #d97b6a;
+    --serif: "Fraunces", Georgia, serif;
     --sans: "Inter", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
   }
   *{ box-sizing: border-box; }
   body{
     margin:0;
     min-height:100vh;
     background:
-      radial-gradient(circle at 15% 0%, rgba(155,124,255,0.14), transparent 45%),
-      radial-gradient(circle at 85% 100%, rgba(255,157,92,0.10), transparent 45%),
-      var(--bg);
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(200,150,62,0.10), transparent 60%),
+      var(--ink);
     color: var(--text);
     font-family: var(--sans);
     display:flex;
     justify-content:center;
-    padding: 48px 20px 80px;
+    padding: 56px 20px 80px;
   }
-  .wrap{ width:100%; max-width: 720px; }
+  .wrap{ width:100%; max-width: 680px; }
 
-  header{ margin-bottom: 36px; }
+  header{
+    text-align:center;
+    margin-bottom: 40px;
+  }
+  .seal{
+    width: 46px;
+    height: 46px;
+    margin: 0 auto 18px;
+    display:block;
+    color: var(--gold);
+    transition: transform 0.6s ease;
+  }
+  .seal.spinning{
+    animation: seal-turn 1.1s linear infinite;
+    color: var(--gold-bright);
+    filter: drop-shadow(0 0 6px rgba(224,180,99,0.5));
+  }
+  @keyframes seal-turn{
+    to{ transform: rotate(360deg); }
+  }
   .eyebrow{
     font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.14em;
+    font-size: 11px;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--accent);
-    margin: 0 0 10px;
+    color: var(--teal);
+    margin: 0 0 14px;
   }
   h1{
-    font-size: 34px;
-    line-height: 1.15;
-    margin: 0 0 10px;
-    font-weight: 700;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 36px;
+    line-height: 1.2;
+    margin: 0 0 14px;
     letter-spacing: -0.01em;
   }
-  h1 span{
-    background: linear-gradient(100deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  h1 em{
+    font-style: italic;
+    font-weight: 500;
+    color: var(--gold-bright);
   }
-  .sub{ color: var(--text-dim); font-size: 15px; max-width: 52ch; margin:0; }
+  .sub{
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 44ch;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
 
   .card{
     background: var(--panel);
-    border: 1px solid var(--panel-border);
-    border-radius: 14px;
-    padding: 24px;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 26px;
     margin-bottom: 18px;
   }
 
-  label{
+  label.field-label{
     display:block;
-    font-size: 12px;
     font-family: var(--mono);
+    font-size: 11px;
     color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 10px;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
   }
 
   .categories{
     display:flex;
     flex-wrap:wrap;
     gap: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
   }
   .cat-btn{
     background: transparent;
-    border: 1px solid var(--panel-border);
+    border: 1px solid var(--border);
     color: var(--text-dim);
-    padding: 7px 14px;
-    border-radius: 999px;
+    padding: 8px 15px;
+    border-radius: 3px;
     font-size: 13px;
     font-family: var(--sans);
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
   }
-  .cat-btn:hover{ border-color: var(--accent); color: var(--text); }
+  .cat-btn:hover{ border-color: var(--gold); color: var(--text); }
   .cat-btn.active{
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #0d0e12;
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #1a1610;
     font-weight: 600;
   }
 
   textarea{
     width:100%;
-    background: #0a0b0e;
-    border: 1px solid var(--panel-border);
-    border-radius: 10px;
+    background: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 3px;
     color: var(--text);
     font-family: var(--sans);
     font-size: 15px;
@@ -113,90 +146,112 @@
     outline: none;
     transition: border-color 0.15s ease;
   }
-  textarea:focus{ border-color: var(--accent); }
-  textarea::placeholder{ color: #565a68; }
+  textarea:focus{ border-color: var(--gold); }
+  textarea::placeholder{ color: #55503f; }
 
   .generate-btn{
-    margin-top: 16px;
+    margin-top: 18px;
     width:100%;
     padding: 14px;
-    border-radius: 10px;
-    border: none;
-    background: linear-gradient(100deg, var(--accent), var(--accent-2));
-    color: #0d0e12;
-    font-size: 15px;
-    font-weight: 700;
+    border-radius: 3px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold-bright);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     cursor: pointer;
     font-family: var(--sans);
-    transition: opacity 0.15s ease, transform 0.1s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 10px;
+    transition: background 0.2s ease, color 0.2s ease;
   }
-  .generate-btn:hover{ opacity: 0.92; }
-  .generate-btn:active{ transform: scale(0.99); }
-  .generate-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
+  .generate-btn:hover{ background: rgba(200,150,62,0.12); }
+  .generate-btn:active{ transform: scale(0.995); }
+  .generate-btn:disabled{ opacity: 0.55; cursor: not-allowed; }
+  .generate-btn .mini-seal{
+    width: 15px;
+    height: 15px;
+    color: var(--gold-bright);
+  }
+  .generate-btn.spinning .mini-seal{
+    animation: seal-turn 1.1s linear infinite;
+  }
 
-  .result-card{ display:none; }
+  .result-card{ display:none; border-left: 2px solid var(--gold); }
   .result-card.show{ display:block; }
   .result-head{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
   .copy-btn{
     background: transparent;
-    border: 1px solid var(--panel-border);
+    border: 1px solid var(--border);
     color: var(--text-dim);
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 12px;
+    padding: 6px 13px;
+    border-radius: 3px;
+    font-size: 11px;
     font-family: var(--mono);
+    letter-spacing: 0.04em;
     cursor: pointer;
   }
-  .copy-btn:hover{ border-color: var(--accent); color: var(--text); }
+  .copy-btn:hover{ border-color: var(--teal); color: var(--text); }
 
   pre{
     white-space: pre-wrap;
     word-wrap: break-word;
     font-family: var(--mono);
     font-size: 13.5px;
-    line-height: 1.6;
-    color: #d9d8e6;
-    background: #0a0b0e;
-    border: 1px solid var(--panel-border);
-    border-left: 2px solid var(--accent);
-    border-radius: 8px;
-    padding: 16px;
+    line-height: 1.65;
+    color: #d9d2c0;
+    background: transparent;
+    border: none;
+    padding: 0;
     margin: 0;
   }
 
   .status{
     font-family: var(--mono);
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-dim);
     min-height: 18px;
-    margin-top: 10px;
+    margin-top: 12px;
   }
-  .status.error{ color: #ff7a7a; }
+  .status.error{ color: var(--error); }
 
   footer{
     text-align:center;
     color: var(--text-dim);
-    font-size: 12px;
+    font-size: 11.5px;
     font-family: var(--mono);
-    margin-top: 32px;
+    letter-spacing: 0.03em;
+    margin-top: 36px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .seal, .seal.spinning, .generate-btn.spinning .mini-seal{ animation: none; }
   }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
+      <svg class="seal" id="headerSeal" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M50 4 L58 34 L88 22 L64 44 L96 50 L64 56 L88 78 L58 66 L50 96 L42 66 L12 78 L36 56 L4 50 L36 44 L12 22 L42 34 Z"
+              stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" fill="none"/>
+        <circle cx="50" cy="50" r="7" stroke="currentColor" stroke-width="2.5" fill="none"/>
+      </svg>
       <p class="eyebrow">/// prompt mühəndisliyi, avtomatlaşdırılmış</p>
-      <h1>Qısa istəyini <span>güclü promota</span> çevir</h1>
-      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazırlayaq.</p>
+      <h1>Xam fikri <em>cilalanmış promota</em><br/>çevir</h1>
+      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazır olsun.</p>
     </header>
 
     <div class="card">
-      <label>Kateqoriya</label>
+      <label class="field-label">Kateqoriya</label>
       <div class="categories" id="categories">
         <button class="cat-btn active" data-cat="genel">Ümumi</button>
         <button class="cat-btn" data-cat="email">E-poçt</button>
@@ -205,16 +260,22 @@
         <button class="cat-btn" data-cat="sinav">Sınağa hazırlıq</button>
       </div>
 
-      <label>İstəyin nədir?</label>
+      <label class="field-label">İstəyin nədir?</label>
       <textarea id="userInput" placeholder="Məs: müştəriyə gecikmiş ödəniş barədə xatırlatma e-poçtu yazmaq istəyirəm"></textarea>
 
-      <button class="generate-btn" id="genBtn">✨ Prompt Yarat</button>
+      <button class="generate-btn" id="genBtn">
+        <svg class="mini-seal" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M50 4 L58 34 L88 22 L64 44 L96 50 L64 56 L88 78 L58 66 L50 96 L42 66 L12 78 L36 56 L4 50 L36 44 L12 22 L42 34 Z"
+                stroke="currentColor" stroke-width="4" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span id="btnLabel">Prompt Yarat</span>
+      </button>
       <div class="status" id="status"></div>
     </div>
 
     <div class="card result-card" id="resultCard">
       <div class="result-head">
-        <label style="margin:0;">Hazır prompt</label>
+        <label class="field-label" style="margin:0;">Hazır prompt</label>
         <button class="copy-btn" id="copyBtn">Kopyala</button>
       </div>
       <pre id="resultText"></pre>
@@ -235,6 +296,8 @@
   });
 
   const genBtn = document.getElementById("genBtn");
+  const btnLabel = document.getElementById("btnLabel");
+  const headerSeal = document.getElementById("headerSeal");
   const userInput = document.getElementById("userInput");
   const statusEl = document.getElementById("status");
   const resultCard = document.getElementById("resultCard");
@@ -251,6 +314,9 @@
     statusEl.classList.remove("error");
     statusEl.textContent = "Hazırlanır...";
     genBtn.disabled = true;
+    genBtn.classList.add("spinning");
+    headerSeal.classList.add("spinning");
+    btnLabel.textContent = "Cilalanır...";
     resultCard.classList.remove("show");
 
     try{
@@ -273,6 +339,9 @@
       statusEl.classList.add("error");
     }finally{
       genBtn.disabled = false;
+      genBtn.classList.remove("spinning");
+      headerSeal.classList.remove("spinning");
+      btnLabel.textContent = "Prompt Yarat";
     }
   }
 

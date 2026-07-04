@@ -601,6 +601,34 @@
   const resultText = document.getElementById("resultText");
   const copyBtn = document.getElementById("copyBtn");
 
+  // Serverdən gələn cavabı təhlükəsiz oxuyur: JSON deyilsə (məs. Vercel-in öz
+  // xəta səhifəsi HTML/mətn qaytarıbsa), sayt "Unexpected token" ilə çökmür,
+  // əvəzinə anlaşılan bir xəta mesajı qaytarır.
+  async function safeParseResponse(res){
+    const raw = await res.text();
+    try{
+      return { data: JSON.parse(raw), parseOk: true };
+    }catch{
+      return {
+        data: { error: "Server gözlənilməz cavab qaytardı (çox güman ki, vaxt aşımı). Bir az sonra yenidən sınayın." },
+        parseOk: false,
+      };
+    }
+  }
+
+  async function callGenerateAPI(payload){
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const { data } = await safeParseResponse(res);
+    if(!res.ok){
+      throw new Error(data.error || "Naməlum xəta baş verdi.");
+    }
+    return data;
+  }
+
   async function generate(){
     const text = userInput.value.trim();
     if(!text){
@@ -616,35 +644,42 @@
     btnLabel.textContent = "Cilalanır...";
     resultCard.classList.remove("show");
 
-    try{
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          request: text,
-          category: activeCategory,
-          attachedContext: attachedContext || undefined,
-          attachedFileName: attachedFileName || undefined,
-        })
-      });
-      const data = await res.json();
+    const payload = {
+      request: text,
+      category: activeCategory,
+      attachedContext: attachedContext || undefined,
+      attachedFileName: attachedFileName || undefined,
+    };
 
-      if(!res.ok){
-        throw new Error(data.error || "Naməlum xəta baş verdi.");
+    const MAX_ATTEMPTS = 2;
+    let lastError = null;
+
+    for(let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
+      try{
+        if(attempt > 1){
+          statusEl.textContent = `Yenidən cəhd edilir (${attempt}/${MAX_ATTEMPTS})...`;
+          await new Promise(r => setTimeout(r, 1200));
+        }
+        const data = await callGenerateAPI(payload);
+        resultText.textContent = data.prompt;
+        resultCard.classList.add("show");
+        statusEl.textContent = data.model_used ? `Model: ${data.model_used}` : "";
+        lastError = null;
+        break;
+      }catch(err){
+        lastError = err;
       }
-
-      resultText.textContent = data.prompt;
-      resultCard.classList.add("show");
-      statusEl.textContent = data.model_used ? `Model: ${data.model_used}` : "";
-    }catch(err){
-      statusEl.textContent = "Xəta: " + err.message;
-      statusEl.classList.add("error");
-    }finally{
-      genBtn.disabled = false;
-      genBtn.classList.remove("spinning");
-      headerSeal.classList.remove("spinning");
-      btnLabel.textContent = "Prompt Yarat";
     }
+
+    if(lastError){
+      statusEl.textContent = "Xəta: " + lastError.message;
+      statusEl.classList.add("error");
+    }
+
+    genBtn.disabled = false;
+    genBtn.classList.remove("spinning");
+    headerSeal.classList.remove("spinning");
+    btnLabel.textContent = "Prompt Yarat";
   }
 
   genBtn.addEventListener("click", generate);

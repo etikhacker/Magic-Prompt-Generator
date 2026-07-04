@@ -144,25 +144,34 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        // OpenRouter pulsuz modellər üçün bu iki header tövsiyə olunur:
-        "HTTP-Referer": "https://magic-prompt.vercel.app",
-        "X-Title": "Magic Prompt Generator",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: safeAttachedContext
-              ? `${SYSTEM_PROMPT}\n\n${categoryGuide}\n\nİstifadəçi bir sənəd də əlavə edib. Yaratdığın promptda bu sənədin məzmununa uyğun konkret detalları (rəqəmlər, adlar, mövzular) istifadə et ki, prompt daha dəqiq və şəxsiləşdirilmiş olsun.`
-              : `${SYSTEM_PROMPT}\n\n${categoryGuide}`,
-          },
-          { role: "user", content: userMessage },
+    // Funksiya Vercel-in öz vaxt limitinə çatıb abrupt şəkildə kəsilməsin deyə,
+    // özümüz nəzarətli bir timeout qoyuruq (25 saniyə) və vaxt bitəndə səliqəli
+    // JSON xəta qaytarırıq.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+    let response;
+    try {
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          // OpenRouter pulsuz modellər üçün bu iki header tövsiyə olunur:
+          "HTTP-Referer": "https://magic-prompt.vercel.app",
+          "X-Title": "Magic Prompt Generator",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: safeAttachedContext
+                ? `${SYSTEM_PROMPT}\n\n${categoryGuide}\n\nİstifadəçi bir sənəd də əlavə edib. Yaratdığın promptda bu sənədin məzmununa uyğun konkret detalları (rəqəmlər, adlar, mövzular) istifadə et ki, prompt daha dəqiq və şəxsiləşdirilmiş olsun.`
+                : `${SYSTEM_PROMPT}\n\n${categoryGuide}`,
+            },
+            { role: "user", content: userMessage },
         ],
         temperature: 0.7,
         max_tokens: 600,
@@ -170,8 +179,11 @@ module.exports = async function handler(req, res) {
         // Bu parametr OpenRouter-ə deyir ki, həmin düşüncə mətnini cavabın
         // içinə qatmasın, yalnız son nəticəni qaytarsın.
         reasoning: { exclude: true },
-      }),
-    });
+        }),
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -207,6 +219,12 @@ module.exports = async function handler(req, res) {
 
     res.status(200).json({ prompt: generatedPrompt, model_used: data.model || model });
   } catch (err) {
+    if (err.name === "AbortError") {
+      res.status(504).json({
+        error: "Model çox uzun çəkdi (25 saniyədən çox). Yenidən sınayın.",
+      });
+      return;
+    }
     res.status(500).json({ error: `Server xətası: ${err.message}` });
   }
 };

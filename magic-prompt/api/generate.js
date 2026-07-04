@@ -55,6 +55,22 @@ QAYDALAR:
    (uzunluq, ton, dil) aydın şəkildə əhatə etməlidir.
 5. Prompt maksimum 150-200 söz olmalıdır — çox uzun olmasın, praktik olsun.`;
 
+// Bəzi pulsuz/kvantlaşdırılmış modellər ara-sıra əlaqəsiz əlifbalardan (Çin, yapon,
+// koreya, ərəb, ivrit, tay, hind və s.) təsadüfi simvollar qatır ("token sızması").
+// Bu funksiya nəticəni təmizləyir: yalnız latın, kiril (Azərbaycan/Türk hərfləri daxil
+// olmaqla), rəqəm və adi durğu işarələrini saxlayır.
+function sanitizePromptText(text) {
+  const unwantedScripts =
+    /[\u4E00-\u9FFF\u3000-\u303F\u3040-\u30FF\uAC00-\uD7AF\u0600-\u06FF\u0750-\u077F\u0590-\u05FF\u0E00-\u0E7F\u0900-\u097F\uFF00-\uFFEF]/g;
+
+  return text
+    .replace(unwantedScripts, "")
+    // silinmə nəticəsində yaranan artıq boşluqları təmizlə
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 module.exports = async function handler(req, res) {
   // CORS - sadə frontend-dən çağırış üçün
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -71,12 +87,17 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { request: userRequest, category } = req.body || {};
+  const { request: userRequest, category, attachedContext, attachedFileName } = req.body || {};
 
   if (!userRequest || typeof userRequest !== "string" || !userRequest.trim()) {
     res.status(400).json({ error: "'request' sahəsi boş ola bilməz." });
     return;
   }
+
+  // Server tərəfində də təhlükəsizlik üçün ölçünü məhdudlaşdır (frontend artıq kəsib göndərir)
+  const MAX_ATTACHED_CHARS = 6000;
+  const safeAttachedContext =
+    typeof attachedContext === "string" ? attachedContext.slice(0, MAX_ATTACHED_CHARS) : "";
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -87,8 +108,15 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const model = process.env.OPENROUTER_MODEL || "openrouter/free";
+  const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
   const categoryGuide = CATEGORY_GUIDES[category] || CATEGORY_GUIDES.genel;
+
+  // Əlavə edilmiş sənəd varsa, istifadəçi mesajına aydın işarələnmiş şəkildə qoşuruq
+  let userMessage = userRequest.trim();
+  if (safeAttachedContext) {
+    const label = attachedFileName ? `"${attachedFileName}" adlı sənəd` : "əlavə edilmiş sənəd";
+    userMessage += `\n\n--- ${label} məzmunu (istinad üçün) ---\n${safeAttachedContext}\n--- sənəd sonu ---`;
+  }
 
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -103,11 +131,16 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: `${SYSTEM_PROMPT}\n\n${categoryGuide}` },
-          { role: "user", content: userRequest.trim() },
+          {
+            role: "system",
+            content: safeAttachedContext
+              ? `${SYSTEM_PROMPT}\n\n${categoryGuide}\n\nİstifadəçi bir sənəd də əlavə edib. Yaratdığın promptda bu sənədin məzmununa uyğun konkret detalları (rəqəmlər, adlar, mövzular) istifadə et ki, prompt daha dəqiq və şəxsiləşdirilmiş olsun.`
+              : `${SYSTEM_PROMPT}\n\n${categoryGuide}`,
+          },
+          { role: "user", content: userMessage },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 600,
       }),
     });
 
@@ -126,10 +159,20 @@ module.exports = async function handler(req, res) {
     }
 
     const data = await response.json();
-    const generatedPrompt = data?.choices?.[0]?.message?.content?.trim();
+    const rawPrompt = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!rawPrompt) {
+      res.status(502).json({ error: "Model boş cavab qaytardı, yenidən sınayın." });
+      return;
+    }
+
+    const generatedPrompt = sanitizePromptText(rawPrompt);
 
     if (!generatedPrompt) {
-      res.status(502).json({ error: "Model boş cavab qaytardı, yenidən sınayın." });
+      // Təmizləmədən sonra heç nə qalmayıbsa, model tamamilə yad əlifbada cavab verib
+      res.status(502).json({
+        error: "Model anlaşılmaz nəticə qaytardı, yenidən sınayın (başqa model seçin).",
+      });
       return;
     }
 

@@ -75,13 +75,58 @@ vercel --prod
 
 Bununla pulsuz, ictimai bir link alacaqsan (`https://magic-prompt-xxx.vercel.app`).
 
-## 6. Kateqoriyaları genişləndirmək
+## 6. Sənəd əlavəsi (PDF / Word / Excel / şəkil)
+
+Formada indi "Sənəd əlavə et" düyməsi var. İstifadəçi bir fayl seçdikdə:
+
+- **PDF** (`.pdf`) — mətn çıxarılır (ilk 20 səhifə)
+- **Word** (`.docx`, `.doc`) — mətn çıxarılır
+- **Excel/CSV** (`.xlsx`, `.xls`, `.csv`) — cədvəl mətnə çevrilir
+- **Sadə mətn** (`.txt`) — birbaşa oxunur
+- **Şəkil** (`.jpg`, `.png`, `.webp`) — hazırkı pulsuz model (Llama 3.3 70B) mətn-yönümlüdür,
+  şəkli "görə" bilmir. Fayl adı istinad kimi qeyd olunur, amma şəklin məzmunu prompta
+  daxil edilmir.
+
+Çıxarılan mətn avtomatik olaraq prompt sorğusuna əlavə olunur ki, yaradılan prompt
+sənədin məzmununa uyğun (rəqəmlər, adlar və s.) olsun. Bütün fayl oxuma əməliyyatı
+**brauzerdə** (client-side) baş verir — fayl heç vaxt sənin serverinə tam yüklənmir,
+yalnız çıxarılan mətn (maks. 6000 simvol) API-yə göndərilir.
+
+> 💡 **Şəkil məzmununu da oxutmaq istəsən:** OpenRouter-də bəzi pulsuz modellər (məs.
+> `qwen/qwen2.5-vl-72b-instruct:free`) şəkilləri anlaya bilir ("vision" modelləri).
+> Bunu istəsən, deyin — `generate.js`-i bu modellərdən biri ilə işləməsi üçün
+> yeniləyə bilərəm (şəkil olduqda avtomatik vision modelinə keçid).
+
+## 7. Media qalereyası əlavə etmək
+
+Header ilə forma arasında avtomatik media qalereyası var — **şəkil, GIF və ya video**
+ola bilər, 1-4 ədəd arası.
+
+Bunu etmək üçün `magic-prompt` kök qovluğunda `media` adlı bir qovluq yarat, içinə
+fayllarını bu adlarla qoy:
+
+```
+media/
+├── hero-1.jpg     (və ya .png, .webp, .gif, .mp4, .webm)
+├── hero-2.mp4
+├── hero-3.png
+└── hero-4.gif
+```
+
+- Fayl adı mütləq `hero-1`, `hero-2`, `hero-3`, `hero-4` olmalıdır (uzantı önəmli deyil)
+- Neçə fayl qoysan, qalereya avtomatik o qədər sütuna bölünür (1, 2, 3 və ya 4)
+- Video fayllar avtomatik səssiz, dövrədə (loop) oynadılır
+- Heç bir fayl yoxdursa, qalereya sahəsi tamamilə gizlənir, sayt normal görünür
+- Bütün adları eyni saxlamaqla istənilən vaxt fayllarını dəyişə bilərsən (məs.
+  `hero-1.jpg`-i silib `hero-1.mp4` qoysan, avtomatik video kimi göstərilir)
+
+## 8. Kateqoriyaları genişləndirmək
 
 `api/generate.js` faylındakı `CATEGORY_GUIDES` obyektinə yeni açar əlavə et, sonra
 `index.html`-dəki `.categories` bölməsinə uyğun düymə əlavə et. Məsələn "iş elanı",
 "sosial media postu", "CV" kimi yeni kateqoriyalar asanlıqla əlavə oluna bilər.
 
-## 7. Gələcək üçün fikirlər
+## 9. Gələcək üçün fikirlər
 
 - Nəticələri Supabase-də saxlayıb istifadəçi tarixçəsi göstərmək
 - Anonim istifadə limiti (məs. IP başına gündə 10 sorğu) əlavə etmək

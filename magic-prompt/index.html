@@ -101,6 +101,41 @@
     line-height: 1.55;
   }
 
+  .hero-gallery{
+    display: grid;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .hero-gallery.count-1{ grid-template-columns: 1fr; }
+  .hero-gallery.count-2{ grid-template-columns: 1fr 1fr; }
+  .hero-gallery.count-3{ grid-template-columns: 1fr 1fr 1fr; }
+  .hero-gallery.count-4{ grid-template-columns: 1fr 1fr; }
+  .hero-item{
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 6px;
+    background: var(--panel-2);
+  }
+  .hero-item img,
+  .hero-item video{
+    display:block;
+    width:100%;
+    height:100%;
+    max-height: 420px;
+    object-fit: cover;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+  .hero-gallery.count-1 .hero-item img,
+  .hero-gallery.count-1 .hero-item video{
+    max-height: 460px;
+    object-fit: contain;
+  }
+  @media (max-width: 560px){
+    .hero-gallery.count-3,
+    .hero-gallery.count-4{ grid-template-columns: 1fr 1fr; }
+  }
+
   .card{
     background: var(--panel);
     border: 1px solid var(--border-soft);
@@ -161,6 +196,50 @@
   }
   textarea:focus{ border-color: var(--gold); }
   textarea::placeholder{ color: #55503f; }
+
+  .file-drop{
+    margin-top: 12px;
+  }
+  .file-btn{
+    width: 100%;
+    background: var(--ink);
+    border: 1px dashed var(--border);
+    color: var(--text-dim);
+    padding: 12px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .file-btn:hover{ border-color: var(--teal); color: var(--text); }
+  .file-btn.has-file{
+    border-style: solid;
+    border-color: var(--teal);
+    color: var(--text);
+  }
+  .file-info{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .file-info.show{ display:flex; }
+  .file-info:not(.show){ display:none; }
+  .file-remove{
+    background: transparent;
+    border: none;
+    color: var(--error);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-decoration: underline;
+    padding: 0;
+  }
 
   .generate-btn{
     margin-top: 18px;
@@ -257,8 +336,10 @@
       <p class="wordmark">Promptr</p>
       <p class="eyebrow">/// prompt mühəndisliyi, avtomatlaşdırılmış</p>
       <h1>Xam fikri <em>cilalanmış promota</em><br/>çevir</h1>
-      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazır olsun.</p>
+      <p class="sub">Nə etmək istədiyini bir cümlə ilə yaz — Claude və ChatGPT-dən daha keyfiyyətli cavab alacağın, yerli konteksə uyğunlaşdırılmış prompt hazırlayaq.</p>
     </header>
+
+    <div class="hero-gallery" id="heroGallery"></div>
 
     <div class="card">
       <label class="field-label">Kateqoriya</label>
@@ -272,6 +353,13 @@
 
       <label class="field-label">İstəyin nədir?</label>
       <textarea id="userInput" placeholder="Məs: müştəriyə gecikmiş ödəniş barədə xatırlatma e-poçtu yazmaq istəyirəm"></textarea>
+
+      <label class="field-label" style="margin-top:18px;">Sənəd əlavə et (könüllü)</label>
+      <div class="file-drop" id="fileDrop">
+        <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp" hidden />
+        <button type="button" class="file-btn" id="fileBtn">📎 Şəkil, PDF, Word və ya Excel seç</button>
+        <div class="file-info" id="fileInfo"></div>
+      </div>
 
       <button class="generate-btn" id="genBtn">
         <img class="mini-seal" src="/logo-icon.png" alt="" width="15" height="15" />
@@ -291,7 +379,209 @@
     <footer>OpenRouter pulsuz model ilə işləyir · sınırsız yaradıcılıq, sıfır xərc</footer>
   </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth.js/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+</script>
+<script>
+  // ---------- Hero media qalereyası ----------
+  // /media qovluğunda hero-1, hero-2, hero-3, hero-4 adlı fayllar axtarılır.
+  // Şəkil (jpg/png/webp/gif) və ya video (mp4/webm) ola bilər — hansı uzantı
+  // mövcuddursa, avtomatik tapılıb göstərilir. Heç bir fayl yoxdursa, qalereya
+  // görünmür və sayt normal işləməyə davam edir.
+  const HERO_EXTENSIONS = [
+    { ext: "mp4", type: "video" },
+    { ext: "webm", type: "video" },
+    { ext: "gif", type: "image" },
+    { ext: "jpg", type: "image" },
+    { ext: "jpeg", type: "image" },
+    { ext: "png", type: "image" },
+    { ext: "webp", type: "image" },
+  ];
+  const HERO_SLOTS = ["hero-1", "hero-2", "hero-3", "hero-4"];
+
+  function probeMedia(src, type){
+    return new Promise((resolve) => {
+      if(type === "image"){
+        const el = new Image();
+        el.onload = () => resolve(true);
+        el.onerror = () => resolve(false);
+        el.src = src;
+      }else{
+        const el = document.createElement("video");
+        el.onloadeddata = () => resolve(true);
+        el.onerror = () => resolve(false);
+        el.preload = "metadata";
+        el.src = src;
+      }
+    });
+  }
+
+  async function findHeroMedia(basename){
+    for(const { ext, type } of HERO_EXTENSIONS){
+      const src = `/media/${basename}.${ext}`;
+      const found = await probeMedia(src, type);
+      if(found) return { src, type };
+    }
+    return null;
+  }
+
+  function buildHeroElement({ src, type }){
+    const wrap = document.createElement("div");
+    wrap.className = "hero-item";
+    if(type === "video"){
+      const video = document.createElement("video");
+      video.src = src;
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.controls = false;
+      wrap.appendChild(video);
+    }else{
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = "Promptr media";
+      wrap.appendChild(img);
+    }
+    return wrap;
+  }
+
+  async function loadHeroGallery(){
+    const container = document.getElementById("heroGallery");
+    const results = await Promise.all(HERO_SLOTS.map(findHeroMedia));
+    const found = results.filter(Boolean);
+
+    if(found.length === 0){
+      container.style.display = "none";
+      return;
+    }
+
+    container.classList.add(`count-${found.length}`);
+    found.forEach((media) => container.appendChild(buildHeroElement(media)));
+  }
+
+  loadHeroGallery();
+
+  // ---------- Sənəd əlavəsi (PDF / Word / Excel / CSV / şəkil / txt) ----------
+  const fileInput = document.getElementById("fileInput");
+  const fileBtn = document.getElementById("fileBtn");
+  const fileInfo = document.getElementById("fileInfo");
+  let attachedContext = "";   // seçilmiş sənəddən çıxarılan mətn
+  let attachedFileName = "";
+
+  const MAX_ATTACHED_CHARS = 6000;
+
+  async function extractPdfText(arrayBuffer){
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = "";
+    const maxPages = Math.min(pdf.numPages, 20);
+    for(let i = 1; i <= maxPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str).join(" ") + "\n";
+      if(text.length > MAX_ATTACHED_CHARS) break;
+    }
+    return text;
+  }
+
+  async function extractDocxText(arrayBuffer){
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  }
+
+  async function extractSpreadsheetText(arrayBuffer){
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+    let text = "";
+    for(const sheetName of workbook.SheetNames){
+      const sheet = workbook.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      text += `--- ${sheetName} ---\n${csv}\n\n`;
+      if(text.length > MAX_ATTACHED_CHARS) break;
+    }
+    return text;
+  }
+
+  function extractTxtText(file){
+    return file.text();
+  }
+
+  async function handleFileSelect(file){
+    fileBtn.textContent = "Oxunur...";
+    fileBtn.disabled = true;
+
+    try{
+      const ext = file.name.split(".").pop().toLowerCase();
+      const buffer = ["pdf","docx","doc","xlsx","xls"].includes(ext)
+        ? await file.arrayBuffer()
+        : null;
+
+      let text = "";
+      if(ext === "pdf"){
+        text = await extractPdfText(buffer);
+      }else if(ext === "docx" || ext === "doc"){
+        text = await extractDocxText(buffer);
+      }else if(ext === "xlsx" || ext === "xls" || ext === "csv"){
+        text = ext === "csv" ? await extractTxtText(file) : await extractSpreadsheetText(buffer);
+      }else if(ext === "txt"){
+        text = await extractTxtText(file);
+      }else if(["jpg","jpeg","png","webp"].includes(ext)){
+        // Hazırkı pulsuz mətn modeli şəkilləri "oxuya" bilmir — yalnız fayl adı
+        // qeyd olunur ki, promptda "bu şəkilə uyğun" kimi kontekst qalsın.
+        text = "";
+        attachedContext = `[Əlavə edilmiş şəkil: ${file.name} — məzmunu AI tərəfindən oxunmayıb, sadəcə istinad kimi qeyd olunur]`;
+        finishFileSelect(file, true);
+        return;
+      }else{
+        throw new Error("Dəstəklənməyən fayl növü.");
+      }
+
+      attachedContext = text.trim().slice(0, MAX_ATTACHED_CHARS);
+      if(!attachedContext){
+        throw new Error("Fayldan mətn çıxarıla bilmədi (boş və ya oxunmaz).");
+      }
+      finishFileSelect(file, false);
+    }catch(err){
+      fileInfo.innerHTML = `<span style="color:var(--error);">Xəta: ${err.message}</span>`;
+      fileInfo.classList.add("show");
+      fileBtn.textContent = "📎 Şəkil, PDF, Word və ya Excel seç";
+      fileBtn.classList.remove("has-file");
+      fileBtn.disabled = false;
+      attachedContext = "";
+      attachedFileName = "";
+    }
+  }
+
+  function finishFileSelect(file, isImageOnly){
+    attachedFileName = file.name;
+    fileBtn.textContent = `✓ ${file.name}`;
+    fileBtn.classList.add("has-file");
+    fileBtn.disabled = false;
+    fileInfo.innerHTML = `<span>${isImageOnly ? "Şəkil əlavə edildi (istinad kimi)" : "Mətn çıxarıldı, prompt yaradılanda istifadə olunacaq"}</span><button class="file-remove" id="fileRemoveBtn" type="button">Sil</button>`;
+    fileInfo.classList.add("show");
+    document.getElementById("fileRemoveBtn").addEventListener("click", clearFile);
+  }
+
+  function clearFile(){
+    attachedContext = "";
+    attachedFileName = "";
+    fileInput.value = "";
+    fileBtn.textContent = "📎 Şəkil, PDF, Word və ya Excel seç";
+    fileBtn.classList.remove("has-file");
+    fileInfo.classList.remove("show");
+    fileInfo.innerHTML = "";
+  }
+
+  fileBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if(file) handleFileSelect(file);
+  });
+
   let activeCategory = "genel";
 
   document.querySelectorAll(".cat-btn").forEach(btn => {
@@ -330,7 +620,12 @@
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request: text, category: activeCategory })
+        body: JSON.stringify({
+          request: text,
+          category: activeCategory,
+          attachedContext: attachedContext || undefined,
+          attachedFileName: attachedFileName || undefined,
+        })
       });
       const data = await res.json();
 

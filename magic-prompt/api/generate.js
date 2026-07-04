@@ -96,6 +96,23 @@ function sanitizePromptText(text) {
     .trim();
 }
 
+// Limit hər gün 00:00 UTC-də sıfırlanır. Bunu Bakı vaxtına (UTC+4) çevirib
+// istifadəçiyə anlaşılan bir mesaj qaytarırıq.
+function getResetTimeMessage() {
+  const now = new Date();
+  const nextResetUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+
+  const bakuTime = new Intl.DateTimeFormat("az-AZ", {
+    timeZone: "Asia/Baku",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(nextResetUTC);
+
+  const hoursLeft = Math.ceil((nextResetUTC - now) / (1000 * 60 * 60));
+
+  return `Limit Bakı vaxtı ilə saat ${bakuTime}-da (təqribən ${hoursLeft} saat sonra) sıfırlanacaq.`;
+}
+
 module.exports = async function handler(req, res) {
   // CORS - sadə frontend-dən çağırış üçün
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -190,8 +207,7 @@ module.exports = async function handler(req, res) {
       // Pulsuz modellərdə rate-limit (429) tez-tez rast gəlinir
       if (response.status === 429) {
         res.status(429).json({
-          error:
-            "Pulsuz model limiti doldu (dəqiqədə ~20 sorğu). Bir az gözləyib yenidən sınayın.",
+          error: `Pulsuz model gündəlik limiti doldu (50 sorğu/gün). ${getResetTimeMessage()}`,
         });
         return;
       }

@@ -53,7 +53,32 @@ QAYDALAR:
    mədəniyyətə uyğun nümunələr və kontekst istifadə et.
 4. Prompt rol (persona), kontekst, dəqiq tapşırıq, format tələbləri və məhdudiyyətləri
    (uzunluq, ton, dil) aydın şəkildə əhatə etməlidir.
-5. Prompt maksimum 150-200 söz olmalıdır — çox uzun olmasın, praktik olsun.`;
+5. Prompt maksimum 150-200 söz olmalıdır — çox uzun olmasın, praktik olsun.
+6. ÇOX VACİB: Öz düşüncə prosesini, planını, təhlilini və ya izahını HEÇ VAXT göstərmə.
+   "Düşünürəm ki...", "Əvvəlcə...", "Analiz:", "Reasoning:", "<think>" kimi hər hansı
+   fikirləşmə izi YAZMA. Birbaşa, heç bir prefiks olmadan yalnız son prompt mətnini yaz.`;
+
+// Bəzi modellər (xüsusən "reasoning" xüsusiyyətli pulsuz modellər) təlimata baxmayaraq
+// öz düşüncə prosesini ("<think>...</think>", "Düşünürəm ki...", "Budur sizin
+// promptunuz:" kimi) cavabın içinə qatır. Bu funksiya belə izləri silir, yalnız
+// əsl prompt mətnini saxlayır.
+function stripThinkingTraces(text) {
+  let cleaned = text;
+
+  // <think>...</think> və ya [think]...[/think] bloklarını tam sil
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  cleaned = cleaned.replace(/\[think\][\s\S]*?\[\/think\]/gi, "");
+
+  // Sətir başında olan tipik "düşüncə" prefikslərini (bütün sətri) sil
+  const thinkingLinePrefixes =
+    /^\s*(düşün(cə|ürəm)[^\n]*|analiz\s*:.*|reasoning\s*:.*|thinking\s*:.*|plan\s*:.*|əvvəlcə,?\s+.*|budur\s+(sizin\s+)?promptunuz\s*:?.*|i(ş)?tə\s+prompt\s*:?.*|here'?s?\s+the\s+prompt\s*:?.*)\s*$/gim;
+  cleaned = cleaned.replace(thinkingLinePrefixes, "");
+
+  // Prompt mətnini bəzən "````" kod blokuna salırlar — varsa çıxar
+  cleaned = cleaned.replace(/^```[a-z]*\n?/gim, "").replace(/```$/gim, "");
+
+  return cleaned.replace(/\n{3,}/g, "\n\n").trim();
+}
 
 // Bəzi pulsuz/kvantlaşdırılmış modellər ara-sıra əlaqəsiz əlifbalardan (Çin, yapon,
 // koreya, ərəb, ivrit, tay, hind və s.) təsadüfi simvollar qatır ("token sızması").
@@ -141,6 +166,10 @@ module.exports = async function handler(req, res) {
         ],
         temperature: 0.7,
         max_tokens: 600,
+        // Bəzi pulsuz modellər "reasoning" (daxili düşüncə) tokenləri yaradır.
+        // Bu parametr OpenRouter-ə deyir ki, həmin düşüncə mətnini cavabın
+        // içinə qatmasın, yalnız son nəticəni qaytarsın.
+        reasoning: { exclude: true },
       }),
     });
 
@@ -166,7 +195,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const generatedPrompt = sanitizePromptText(rawPrompt);
+    const generatedPrompt = sanitizePromptText(stripThinkingTraces(rawPrompt));
 
     if (!generatedPrompt) {
       // Təmizləmədən sonra heç nə qalmayıbsa, model tamamilə yad əlifbada cavab verib

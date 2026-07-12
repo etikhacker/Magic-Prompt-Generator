@@ -37,13 +37,20 @@ cp .env.example .env
 
 `.env` faylını aç və `OPENROUTER_API_KEY` sahəsinə açarını yapışdır.
 
-`OPENROUTER_MODEL` sahəsini olduğu kimi saxlaya bilərsən (`openrouter/free` — avtomatik
-mövcud pulsuz modeldən istifadə edir), və ya konkret bir pulsuz model seçə bilərsən.
+**Ehtiyat model (tövsiyə olunur):** OpenRouter-in gündəlik 50 sorğu limiti tez dolur.
+İstəsən, `GEMINI_API_KEY` sahəsinə Google Gemini açarını da (pulsuz,
+https://aistudio.google.com/app/apikey) yapışdır — OpenRouter limiti dolanda sayt
+avtomatik Gemini-yə keçəcək, tamam fərqli, öz limiti olan bir xidmət olduğu üçün.
+Bu sahəni boş buraxsan da sayt normal işləyir, sadəcə fallback olmayacaq.
+
+`OPENROUTER_MODEL` sahəsini olduğu kimi saxlaya bilərsən (`meta-llama/llama-3.3-70b-instruct:free`
+— sabit, etibarlı bir model), və ya konkret başqa bir pulsuz model seçə bilərsən.
 Pulsuz modellərin siyahısı tez-tez dəyişir, güncəl siyahı üçün:
 https://openrouter.ai/models?max_price=0
 
 > ⚠️ Qeyd: pulsuz modellərin sürəti/keyfiyyəti tarixə görə dəyişə bilər, adətən limit
-> dəqiqədə ~20 sorğudur. Prototip və şəxsi istifadə üçün kifayət qədərdir.
+> dəqiqədə ~20, gündə ~50 sorğudur (kredit yükləməmisənsə). Prototip və şəxsi istifadə
+> üçün kifayət qədərdir.
 
 ## 4. Lokal test
 

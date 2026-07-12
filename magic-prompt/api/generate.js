@@ -113,6 +113,80 @@ function getResetTimeMessage() {
   return `Limit Bakı vaxtı ilə saat ${bakuTime}-da (təqribən ${hoursLeft} saat sonra) sıfırlanacaq.`;
 }
 
+// OpenRouter-ə sorğu göndərir. 25 saniyəlik nəzarətli timeout var ki, Vercel
+// funksiyanı özü abrupt kəsib HTML xəta səhifəsi qaytarmasın.
+async function callOpenRouter({ apiKey, model, systemContent, userMessage }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://magic-prompt.vercel.app",
+        "X-Title": "Magic Prompt Generator",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: userMessage },
+        ],
+        temperature: 0.7,
+        max_tokens: 600,
+        reasoning: { exclude: true },
+      }),
+    });
+
+    if (!response.ok) {
+      return { ok: false, status: response.status, errorText: await response.text() };
+    }
+
+    const data = await response.json();
+    const rawPrompt = data?.choices?.[0]?.message?.content?.trim();
+    return { ok: true, rawPrompt, modelUsed: data.model || model };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// OpenRouter gündəlik limiti dolanda ehtiyat variant kimi Google Gemini-nin
+// öz pulsuz API-sinə keçirik — bu tamamilə ayrı, öz limiti olan bir xidmətdir.
+async function callGemini({ apiKey, systemContent, userMessage }) {
+  const geminiModel = "gemini-2.5-flash-lite";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemContent }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 700 },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      return { ok: false, status: response.status, errorText: await response.text() };
+    }
+
+    const data = await response.json();
+    const rawPrompt = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return { ok: true, rawPrompt, modelUsed: `google/${geminiModel} (ehtiyat)` };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 module.exports = async function handler(req, res) {
   // CORS - sadə frontend-dən çağırış üçün
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -142,6 +216,7 @@ module.exports = async function handler(req, res) {
     typeof attachedContext === "string" ? attachedContext.slice(0, MAX_ATTACHED_CHARS) : "";
 
   const apiKey = process.env.OPENROUTER_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY; // könüllü — varsa fallback işləyir
   if (!apiKey) {
     res.status(500).json({
       error:
@@ -153,6 +228,10 @@ module.exports = async function handler(req, res) {
   const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
   const categoryGuide = CATEGORY_GUIDES[category] || CATEGORY_GUIDES.genel;
 
+  const systemContent = safeAttachedContext
+    ? `${SYSTEM_PROMPT}\n\n${categoryGuide}\n\nİstifadəçi bir sənəd də əlavə edib. Yaratdığın promptda bu sənədin məzmununa uyğun konkret detalları (rəqəmlər, adlar, mövzular) istifadə et ki, prompt daha dəqiq və şəxsiləşdirilmiş olsun.`
+    : `${SYSTEM_PROMPT}\n\n${categoryGuide}`;
+
   // Əlavə edilmiş sənəd varsa, istifadəçi mesajına aydın işarələnmiş şəkildə qoşuruq
   let userMessage = userRequest.trim();
   if (safeAttachedContext) {
@@ -161,79 +240,40 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Funksiya Vercel-in öz vaxt limitinə çatıb abrupt şəkildə kəsilməsin deyə,
-    // özümüz nəzarətli bir timeout qoyuruq (25 saniyə) və vaxt bitəndə səliqəli
-    // JSON xəta qaytarırıq.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    let result = await callOpenRouter({ apiKey, model, systemContent, userMessage });
 
-    let response;
-    try {
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          // OpenRouter pulsuz modellər üçün bu iki header tövsiyə olunur:
-          "HTTP-Referer": "https://magic-prompt.vercel.app",
-          "X-Title": "Magic Prompt Generator",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: safeAttachedContext
-                ? `${SYSTEM_PROMPT}\n\n${categoryGuide}\n\nİstifadəçi bir sənəd də əlavə edib. Yaratdığın promptda bu sənədin məzmununa uyğun konkret detalları (rəqəmlər, adlar, mövzular) istifadə et ki, prompt daha dəqiq və şəxsiləşdirilmiş olsun.`
-                : `${SYSTEM_PROMPT}\n\n${categoryGuide}`,
-            },
-            { role: "user", content: userMessage },
-        ],
-        temperature: 0.7,
-        max_tokens: 600,
-        // Bəzi pulsuz modellər "reasoning" (daxili düşüncə) tokenləri yaradır.
-        // Bu parametr OpenRouter-ə deyir ki, həmin düşüncə mətnini cavabın
-        // içinə qatmasın, yalnız son nəticəni qaytarsın.
-        reasoning: { exclude: true },
-        }),
-      });
-    } finally {
-      clearTimeout(timeoutId);
+    // OpenRouter gündəlik limiti (50/gün) dolubsa və Gemini açarı varsa, ehtiyat
+    // variana keçirik. Bu, tamamilə ayrı bir xidmət olduğu üçün öz limitini gətirir.
+    if (!result.ok && result.status === 429 && geminiKey) {
+      result = await callGemini({ apiKey: geminiKey, systemContent, userMessage });
     }
 
-    if (!response.ok) {
-      const errText = await response.text();
-      // Pulsuz modellərdə rate-limit (429) tez-tez rast gəlinir
-      if (response.status === 429) {
+    if (!result.ok) {
+      if (result.status === 429) {
         res.status(429).json({
           error: `Pulsuz model gündəlik limiti doldu (50 sorğu/gün). ${getResetTimeMessage()}`,
         });
         return;
       }
-      res.status(response.status).json({ error: `OpenRouter xətası: ${errText}` });
+      res.status(result.status || 500).json({ error: `Model xətası: ${result.errorText}` });
       return;
     }
 
-    const data = await response.json();
-    const rawPrompt = data?.choices?.[0]?.message?.content?.trim();
-
-    if (!rawPrompt) {
+    if (!result.rawPrompt) {
       res.status(502).json({ error: "Model boş cavab qaytardı, yenidən sınayın." });
       return;
     }
 
-    const generatedPrompt = sanitizePromptText(stripThinkingTraces(rawPrompt));
+    const generatedPrompt = sanitizePromptText(stripThinkingTraces(result.rawPrompt));
 
     if (!generatedPrompt) {
-      // Təmizləmədən sonra heç nə qalmayıbsa, model tamamilə yad əlifbada cavab verib
       res.status(502).json({
         error: "Model anlaşılmaz nəticə qaytardı, yenidən sınayın (başqa model seçin).",
       });
       return;
     }
 
-    res.status(200).json({ prompt: generatedPrompt, model_used: data.model || model });
+    res.status(200).json({ prompt: generatedPrompt, model_used: result.modelUsed });
   } catch (err) {
     if (err.name === "AbortError") {
       res.status(504).json({

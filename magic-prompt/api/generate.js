@@ -241,17 +241,33 @@ module.exports = async function handler(req, res) {
 
   try {
     let result = await callOpenRouter({ apiKey, model, systemContent, userMessage });
+    let geminiAttempted = false;
+    let geminiError = null;
 
     // OpenRouter gündəlik limiti (50/gün) dolubsa və Gemini açarı varsa, ehtiyat
     // variana keçirik. Bu, tamamilə ayrı bir xidmət olduğu üçün öz limitini gətirir.
     if (!result.ok && result.status === 429 && geminiKey) {
-      result = await callGemini({ apiKey: geminiKey, systemContent, userMessage });
+      geminiAttempted = true;
+      const geminiResult = await callGemini({ apiKey: geminiKey, systemContent, userMessage });
+      if (geminiResult.ok) {
+        result = geminiResult;
+      } else {
+        geminiError = geminiResult;
+      }
     }
 
     if (!result.ok) {
       if (result.status === 429) {
+        let debugNote;
+        if (!geminiKey) {
+          debugNote = "(Gemini fallback sınanmadı: GEMINI_API_KEY təyin olunmayıb.)";
+        } else if (geminiAttempted && geminiError) {
+          debugNote = `(Gemini fallback da uğursuz oldu — status ${geminiError.status}: ${String(geminiError.errorText).slice(0, 200)})`;
+        } else {
+          debugNote = "";
+        }
         res.status(429).json({
-          error: `Pulsuz model gündəlik limiti doldu (50 sorğu/gün). ${getResetTimeMessage()}`,
+          error: `Pulsuz model gündəlik limiti doldu (50 sorğu/gün). ${getResetTimeMessage()} ${debugNote}`,
         });
         return;
       }
